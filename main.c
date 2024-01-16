@@ -115,7 +115,7 @@ __IO uint16_t uhADCxConvertedValue = 0;
 /*   RESET <=> voltage into AWD window   */
 /*   SET   <=> voltage out of AWD window */
 uint8_t         ubAnalogWatchdogStatus = RESET;  /* Set into analog watchdog interrupt callback */
-/**/
+/*End Watchdog variables*/
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
