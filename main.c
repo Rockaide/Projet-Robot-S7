@@ -109,6 +109,7 @@ uint8_t UNE_FOIS = 1;
 uint32_t OV = 0;
 /* USER CODE END PV */
 
+<<<<<<< Updated upstream
 /*Watchdog variables*/
 __IO uint16_t uhADCxConvertedValue = 0;
 /* Variable to report ADC analog watchdog status:   */
@@ -116,6 +117,11 @@ __IO uint16_t uhADCxConvertedValue = 0;
 /*   SET   <=> voltage out of AWD window */
 uint8_t         ubAnalogWatchdogStatus = RESET;  /* Set into analog watchdog interrupt callback */
 /**/
+=======
+volatile uint32_t dist_sonar = 0;
+volatile uint8_t fin_lect_sonar = 0;
+int test = 0;
+>>>>>>> Stashed changes
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
@@ -126,7 +132,9 @@ void regulateur(void);
 void controle(void);
 void Calcul_Vit(void);
 void ACS(void);
+void lecture_sonar(void);
 /* USER CODE END PFP */
+
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
@@ -167,6 +175,7 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM4_Init();
   MX_USART3_UART_Init();
+  MX_TIM1_Init();
 
   /* Initialize interrupts */
   MX_NVIC_Init();
@@ -182,18 +191,47 @@ int main(void)
     	HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
     	HAL_UART_Receive_IT(&huart3, &BLUE_RX, 1);
   /* USER CODE END 2 */
+    	/*Variable sonar*/
+    	HAL_ADC_Start_IT(&hadc1);
+    	HAL_TIM_IC_Start_IT (&htim1, TIM_CHANNEL_2);
 
+
+  /*TEST SONAR*/
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
 	  Gestion_Commandes();
 	  controle();
+	  lecture_sonar();
+	  test++;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
+}
+
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
+{
+
+	if ( htim->Instance == TIM1 )
+	{
+		//lecture de la valeur
+		dist_sonar = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_2);
+		//raz du gpio du trig
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+		//fin lecture a true
+		fin_lect_sonar = 1;
+	}
+}
+
+void lecture_sonar()
+{
+	//Trigger sonar
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+	//Attendre 50ms
+	fin_lect_sonar = 0;
 }
 
 /**
@@ -1018,31 +1056,28 @@ void regulateur(void) {
 	}
 }
 
-
-/*Bluetooth command handler*/
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	if (huart->Instance == USART3) {
 
 		switch (BLUE_RX) {
-		/*Forwards*/
 		case 'F': {
 			CMDE = AVANT;
 			//New_CMDE = 1;
 			break;
 		}
-		/*Backwards*/
+
 		case 'B': {
 			CMDE = ARRIERE;
 			//New_CMDE = 1;
 			break;
 		}
-		/*Left*/
+
 		case 'L': {
 			CMDE = GAUCHE;
 			//New_CMDE = 1;
 			break;
 		}
-		/*Right*/
+
 		case 'R': {
 			CMDE = DROITE;
 			//New_CMDE = 1;
@@ -1054,7 +1089,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 			break;
 		}
 		default:
-			/*void Gestion_Commandes(void)*/
 			New_CMDE = 1;
 		}
 
