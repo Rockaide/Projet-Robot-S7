@@ -109,19 +109,9 @@ uint8_t UNE_FOIS = 1;
 uint32_t OV = 0;
 /* USER CODE END PV */
 
-<<<<<<< Updated upstream
-/*Watchdog variables*/
-__IO uint16_t uhADCxConvertedValue = 0;
-/* Variable to report ADC analog watchdog status:   */
-/*   RESET <=> voltage into AWD window   */
-/*   SET   <=> voltage out of AWD window */
-uint8_t         ubAnalogWatchdogStatus = RESET;  /* Set into analog watchdog interrupt callback */
-/**/
-=======
 volatile uint32_t dist_sonar = 0;
 volatile uint8_t fin_lect_sonar = 0;
 int test = 0;
->>>>>>> Stashed changes
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
