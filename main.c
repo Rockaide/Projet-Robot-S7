@@ -177,7 +177,7 @@ int main(void)
     	HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
     	HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
     	HAL_UART_Receive_IT(&huart3, &BLUE_RX, 1);
-    	HAL_TIM_IC_Start_IT(&htim1,TIM_CHANNEL_4); //Interruption PWM sonar
+    	HAL_TIM_PWM_Start_IT(&htim1,TIM_CHANNEL_4); //Interruption PWM sonar
     	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //Début PWM sonar
   /* USER CODE END 2 */
 
@@ -185,8 +185,12 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  //__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2000);
 	  Gestion_Commandes();
 	  controle();
+/*	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
+	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
+	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face*/
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
