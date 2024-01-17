@@ -111,6 +111,10 @@ uint32_t OV = 0;
 int cpt = 1;
 /* USER CODE END PV */
 
+volatile uint32_t dist_sonar = 0;
+volatile uint8_t fin_lect_sonar = 0;
+int test = 0;
+
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_NVIC_Init(void);
@@ -120,7 +124,9 @@ void regulateur(void);
 void controle(void);
 void Calcul_Vit(void);
 void ACS(void);
+void lecture_sonar(void);
 /* USER CODE END PFP */
+
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
@@ -180,7 +186,12 @@ int main(void)
     	HAL_TIM_PWM_Start_IT(&htim1,TIM_CHANNEL_4); //Interruption PWM sonar
     	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //Début PWM sonar
   /* USER CODE END 2 */
+    	/*Variable sonar*/
+    	HAL_ADC_Start_IT(&hadc1);
+    	HAL_TIM_IC_Start_IT (&htim1, TIM_CHANNEL_2);
 
+
+  /*TEST SONAR*/
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
@@ -191,11 +202,35 @@ int main(void)
 /*	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
 	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
 	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face*/
+	  lecture_sonar();
+	  test++;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
+}
+
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
+{
+
+	if ( htim->Instance == TIM1 )
+	{
+		//lecture de la valeur
+		dist_sonar = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_2);
+		//raz du gpio du trig
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+		//fin lecture a true
+		fin_lect_sonar = 1;
+	}
+}
+
+void lecture_sonar()
+{
+	//Trigger sonar
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+	//Attendre 50ms
+	fin_lect_sonar = 0;
 }
 
 /**
