@@ -87,7 +87,8 @@ volatile unsigned char New_CMDE = 0;
 volatile uint16_t Dist_ACS_1, Dist_ACS_2, Dist_ACS_3, Dist_ACS_4;
 volatile unsigned int Time = 0;
 volatile unsigned int Tech = 0;
-uint16_t adc_buffer[8];
+volatile unsigned int Vbatt = 0;
+uint16_t adc_buffer[10];
 uint16_t Buff_Dist[8];
 uint8_t BLUE_RX;
 
@@ -107,6 +108,7 @@ uint32_t Dist_Obst_cm;
 uint32_t Dist;
 uint8_t UNE_FOIS = 1;
 uint32_t OV = 0;
+int cpt = 1;
 /* USER CODE END PV */
 
 volatile uint32_t dist_sonar = 0;
@@ -176,10 +178,13 @@ int main(void)
     	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
     	CMDE = STOP;
     	New_CMDE = 1;
-    	HAL_TIM_Base_Start_IT(&htim2);  // Start IT sur font montant PWM
+    	HAL_ADC_Start_IT(&hadc1);
+    	HAL_TIM_Base_Start_IT(&htim2);  // Start IT sur front montant PWM
     	HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
-    	HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
+    	HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
     	HAL_UART_Receive_IT(&huart3, &BLUE_RX, 1);
+    	HAL_TIM_IC_Start_IT(&htim1,TIM_CHANNEL_4); //Interruption PWM sonar
+    	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //Début PWM sonar
   /* USER CODE END 2 */
     	/*Variable sonar*/
     	HAL_ADC_Start_IT(&hadc1);
@@ -860,7 +865,7 @@ void ACS(void) {
 
 	switch (Etat) {
 	case ARRET: {
-		if (Mode == ACTIF )
+		if (Mode == ACTIF)
 			Etat = ACTIF;
 		else {
 			CVitD = _CVitD;
@@ -1089,10 +1094,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 
-	Dist_ACS_3 = adc_buffer[0] - adc_buffer[4];
-	Dist_ACS_4 = adc_buffer[3] - adc_buffer[7];
-	Dist_ACS_1 = adc_buffer[1] - adc_buffer[5];
-	Dist_ACS_2 = adc_buffer[2] - adc_buffer[6];
+	Dist_ACS_3 = adc_buffer[0] - adc_buffer[5];
+	Dist_ACS_4 = adc_buffer[3] - adc_buffer[8];
+	Dist_ACS_1 = adc_buffer[1] - adc_buffer[6];
+	Dist_ACS_2 = adc_buffer[2] - adc_buffer[7];
 	HAL_ADC_Stop_DMA(hadc);
 }
 
@@ -1113,7 +1118,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim) {
 			break;
 		}
 		case 2: {
-			HAL_ADC_Start_DMA(&hadc1, (uint32_t *) adc_buffer, 8);
+			HAL_ADC_Start_DMA(&hadc1, (uint32_t *) adc_buffer, 10);
 			break;
 		}
 		case 3: {
@@ -1124,13 +1129,19 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim) {
 			break;
 		}
 		case 4: {
-			HAL_ADC_Start_DMA(&hadc1, (uint32_t *) adc_buffer, 8);
+			HAL_ADC_Start_DMA(&hadc1, (uint32_t *) adc_buffer, 10);
 			break;
 		}
 		default:
 			cpt = 0;
 		}
 	}
+}
+
+// interruption watchdog
+void HAL_ADC_LevelOutOfWindowCallback(ADC_HandleTypeDef* hadc1)
+{
+	HAL_GPIO_WritePin(LD2_GPIO_Port , LD2_Pin, GPIO_PIN_SET);
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
