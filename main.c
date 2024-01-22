@@ -91,6 +91,7 @@ volatile unsigned int Vbatt = 0;
 uint16_t adc_buffer[10];
 uint16_t Buff_Dist[8];
 uint8_t BLUE_RX;
+uint8_t Xbee_cmde;
 
 uint16_t _DirG, _DirD, CVitG, CVitD, DirD, DirG;
 uint16_t _CVitD = 0;
@@ -111,10 +112,6 @@ uint32_t OV = 0;
 int cpt = 1;
 /* USER CODE END PV */
 
-volatile uint32_t dist_sonar = 0;
-volatile uint8_t fin_lect_sonar = 0;
-int test = 0;
-
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_NVIC_Init(void);
@@ -124,9 +121,7 @@ void regulateur(void);
 void controle(void);
 void Calcul_Vit(void);
 void ACS(void);
-void lecture_sonar(void);
 /* USER CODE END PFP */
-
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
@@ -168,6 +163,7 @@ int main(void)
   MX_TIM4_Init();
   MX_USART3_UART_Init();
   MX_TIM1_Init();
+  MX_USART1_UART_Init();
 
   /* Initialize interrupts */
   MX_NVIC_Init();
@@ -183,15 +179,11 @@ int main(void)
     	HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
     	HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
     	HAL_UART_Receive_IT(&huart3, &BLUE_RX, 1);
+    	HAL_UART_Receive_IT(&huart1, &Xbee_cmde, 1);
     	HAL_TIM_PWM_Start_IT(&htim1,TIM_CHANNEL_4); //Interruption PWM sonar
     	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //Début PWM sonar
   /* USER CODE END 2 */
-    	/*Variable sonar*/
-    	HAL_ADC_Start_IT(&hadc1);
-    	HAL_TIM_IC_Start_IT (&htim1, TIM_CHANNEL_2);
-
-
-  /*TEST SONAR*/
+/**/
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
@@ -199,38 +191,17 @@ int main(void)
 	  //__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2000);
 	  Gestion_Commandes();
 	  controle();
+
+
+
 /*	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
 	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
 	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face*/
-	  lecture_sonar();
-	  test++;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
-}
-
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
-{
-
-	if ( htim->Instance == TIM1 )
-	{
-		//lecture de la valeur
-		dist_sonar = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_2);
-		//raz du gpio du trig
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
-		//fin lecture a true
-		fin_lect_sonar = 1;
-	}
-}
-
-void lecture_sonar()
-{
-	//Trigger sonar
-	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
-	//Attendre 50ms
-	fin_lect_sonar = 0;
 }
 
 /**
@@ -1092,6 +1063,18 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 		}
 
 		HAL_UART_Receive_IT(&huart3, &BLUE_RX, 1);
+
+	}
+
+	if (huart->Instance == USART1){
+		if(huart->gState == HAL_UART_STATE_READY){
+			HAL_UART_Transmit(&huart1, &Xbee_cmde, 1, 0);
+		}
+		if(huart->gState = HAL_UART_STATE_READY){
+			Xbee_cmde='b';
+			HAL_UART_Transmit(&huart1, &Xbee_cmde, 1, 0);
+		}
+		HAL_UART_Receive_IT(&huart1, &Xbee_cmde, 1);
 
 	}
 }
