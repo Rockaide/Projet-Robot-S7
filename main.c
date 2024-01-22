@@ -183,7 +183,7 @@ int main(void)
     	HAL_TIM_PWM_Start_IT(&htim1,TIM_CHANNEL_4); //Interruption PWM sonar
     	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //Début PWM sonar
   /* USER CODE END 2 */
-
+/**/
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
