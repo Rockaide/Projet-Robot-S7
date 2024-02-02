@@ -76,9 +76,9 @@ enum CMDE {
 	AVANT,
 	ARRIERE,
 	DROITE,
-	GAUCHE,
 	MOV_PARK,
-	ATTENTE_PARK
+	ATTENTE_PARK,
+	GAUCHE
 };
 volatile enum CMDE CMDE;
 enum MODE {
@@ -120,6 +120,10 @@ uint32_t OV = 0;
 int cpt = 1;
 /* USER CODE END PV */
 
+/*Variables sonar*/
+volatile uint32_t dist_sonar = 0;
+volatile uint8_t fin_lect_sonar = 0;
+
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_NVIC_Init(void);
@@ -135,6 +139,7 @@ void avancer(uint32_t longueur);
 void tourner_gauche();
 void tourner_droite();
 void envoi_Xbee_cmde(uint8_t identification);
+void lecture_sonar(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -190,6 +195,7 @@ int main(void)
     	New_CMDE = 1;
     	HAL_ADC_Start_IT(&hadc1);
     	HAL_TIM_Base_Start_IT(&htim2);  // Start IT sur front montant PWM
+    	HAL_TIM_IC_Start_IT (&htim1, TIM_CHANNEL_2); 	// Start input capture
     	HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
     	HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
     	HAL_UART_Receive_IT(&huart3, &BLUE_RX, 1);
@@ -205,11 +211,12 @@ int main(void)
 	  //__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2000);
 	  Gestion_Commandes();
 	  controle();
+	  lecture_sonar();
 
 
-	 // __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
-	//  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
-	//  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face
+/*	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
+	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
+	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face*/
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -1071,13 +1078,13 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 			// disconnect bluetooth
 			break;
 		}
+		default:
+			New_CMDE = 1;
+		}
 
 		case 'A':{
 			// Appuie sur le button start
 			break;
-		}
-		default:
-			New_CMDE = 1;
 		}
 
 		HAL_UART_Receive_IT(&huart3, &BLUE_RX, 1);
@@ -1094,7 +1101,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 			Xbee_cmde[2]='ssem';
 			Xbee_cmde[3]=';ega';
 			HAL_UART_Transmit(&huart1, Xbee_cmde, sizeof(Xbee_cmde), 1);
-		}
 		}
 		HAL_UART_Receive_IT(&huart1, Xbee_cmde, sizeof(Xbee_cmde));
 
@@ -1165,6 +1171,27 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	New_CMDE = 1;
 }
 
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
+{
+
+	if ( htim->Instance == TIM1 )
+	{
+		//lecture de la valeur
+		dist_sonar = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_2);
+		//raz du gpio du trig
+		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+		//fin lecture a true
+		fin_lect_sonar = 1;
+	}
+}
+
+void lecture_sonar()
+{
+	//Trigger sonar
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+	//Attendre 50ms
+	fin_lect_sonar = 0;
+}
 /* USER CODE END 4 */
 
 /**
