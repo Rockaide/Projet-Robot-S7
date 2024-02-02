@@ -93,6 +93,8 @@ uint16_t Buff_Dist[8];
 uint8_t BLUE_RX;
 uint8_t Xbee_cmde;
 
+uint8_t identification;
+
 uint16_t _DirG, _DirD, CVitG, CVitD, DirD, DirG;
 uint16_t _CVitD = 0;
 uint16_t _CVitG = 0;
@@ -200,9 +202,9 @@ int main(void)
 	  lecture_sonar();
 
 
-/*	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
-	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
-	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face*/
+	 // __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
+	//  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
+	//  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -1038,30 +1040,35 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 		switch (BLUE_RX) {
 		case 'F': {
 			CMDE = AVANT;
-			//New_CMDE = 1;
+			New_CMDE = 1;
 			break;
 		}
 
 		case 'B': {
 			CMDE = ARRIERE;
-			//New_CMDE = 1;
+			New_CMDE = 1;
 			break;
 		}
 
 		case 'L': {
 			CMDE = GAUCHE;
-			//New_CMDE = 1;
+			New_CMDE = 1;
 			break;
 		}
 
 		case 'R': {
 			CMDE = DROITE;
-			//New_CMDE = 1;
+			New_CMDE = 1;
 			break;
 		}
 
 		case 'D':{
 			// disconnect bluetooth
+			break;
+		}
+
+		case 'A':{
+			// Appuie sur le button start
 			break;
 		}
 		default:
@@ -1087,10 +1094,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 
-	Dist_ACS_3 = adc_buffer[0] - adc_buffer[5];
-	Dist_ACS_4 = adc_buffer[3] - adc_buffer[8];
-	Dist_ACS_1 = adc_buffer[1] - adc_buffer[6];
-	Dist_ACS_2 = adc_buffer[2] - adc_buffer[7];
+	Dist_ACS_3 = adc_buffer[0] - adc_buffer[5]; // Capteur SO
+	Dist_ACS_4 = adc_buffer[3] - adc_buffer[8]; // Capteur SE
+	Dist_ACS_1 = adc_buffer[1] - adc_buffer[6]; // Capteur NE
+	Dist_ACS_2 = adc_buffer[2] - adc_buffer[7]; // Capteur NO
 	HAL_ADC_Stop_DMA(hadc);
 }
 
