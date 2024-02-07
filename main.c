@@ -76,9 +76,9 @@ enum CMDE {
 	AVANT,
 	ARRIERE,
 	DROITE,
+	GAUCHE,
 	MOV_PARK,
-	ATTENTE_PARK,
-	GAUCHE
+	ATTENTE_PARK
 };
 volatile enum CMDE CMDE;
 enum MODE {
@@ -90,16 +90,21 @@ volatile uint16_t Dist_ACS_1, Dist_ACS_2, Dist_ACS_3, Dist_ACS_4;
 volatile unsigned int Time = 0;
 volatile unsigned int Tech = 0;
 volatile unsigned int Vbatt = 0;
+volatile unsigned int pa = 0;
+volatile unsigned int attpa = 0;
 uint16_t adc_buffer[10];
 uint16_t Buff_Dist[8];
 uint8_t BLUE_RX;
-uint8_t ID; // Numéro d'identification du robot
-uint32_t Xbee_cmde[4]; // Buffer pour la communication zigbee, [ID, x0, y0, z0]
-uint16_t pos_X;
-uint16_t pos_Y;
-uint16_t pos_Z;
+uint8_t XBEE;
 
-uint8_t identification;
+int ID = 1234; // Numéro d'identification du robot
+int ID_dest; //Numéro d'identification du robot à garer
+int Xbee_cmde[4]; // Buffer pour la communication zigbee, [ID, x0, y0, z0]
+int pos;
+uint32_t pos_X;
+uint32_t pos_Y;
+uint32_t pos_Z;
+uint8_t fin_lect_sonar = 0;
 
 uint16_t _DirG, _DirD, CVitG, CVitD, DirD, DirG;
 uint16_t _CVitD = 0;
@@ -118,11 +123,8 @@ uint32_t Dist;
 uint8_t UNE_FOIS = 1;
 uint32_t OV = 0;
 int cpt = 1;
+int activ;
 /* USER CODE END PV */
-
-/*Variables sonar*/
-volatile uint32_t dist_sonar = 0;
-volatile uint8_t fin_lect_sonar = 0;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
@@ -133,13 +135,15 @@ void regulateur(void);
 void controle(void);
 void Calcul_Vit(void);
 void ACS(void);
-void set_Xbee_cmde(uint16_t * tab);
-void mesure_position();
-void avancer(uint32_t longueur);
-void tourner_gauche();
-void tourner_droite();
-void envoi_Xbee_cmde(uint8_t identification);
-void lecture_sonar(void);
+void set_Xbee_cmde(int a);
+//void mesure_position();
+void lecture_sonar();
+//void avancer(uint32_t longueur);
+//void tourner_gauche();
+//void tourner_droite();
+void park();
+void attente_park();
+void envoi_Xbee_cmde();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -195,7 +199,6 @@ int main(void)
     	New_CMDE = 1;
     	HAL_ADC_Start_IT(&hadc1);
     	HAL_TIM_Base_Start_IT(&htim2);  // Start IT sur front montant PWM
-    	HAL_TIM_IC_Start_IT (&htim1, TIM_CHANNEL_2); 	// Start input capture
     	HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
     	HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
     	HAL_UART_Receive_IT(&huart3, &BLUE_RX, 1);
@@ -211,12 +214,12 @@ int main(void)
 	  //__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2000);
 	  Gestion_Commandes();
 	  controle();
-	  lecture_sonar();
-
-
-/*	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
-	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
-	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face*/
+	  park();
+	  attente_park();
+	  //__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
+	  //__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
+	  //__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face
+	  //mesure_position();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -1046,6 +1049,127 @@ void regulateur(void) {
 	}
 }
 
+void attente_park(){
+	switch(attpa){
+		case 0 : {
+			//En attente
+			break;
+		}
+		case 1 : { //Le robot en attente envoi son ID au robot garé
+			set_Xbee_cmde(1);
+			HAL_UART_Transmit(&huart1, Xbee_cmde, sizeof(Xbee_cmde), 1);
+			attpa = 0;
+			break;
+		}
+		case 2 : {
+			//Le robot en attente park bouge vers la position à laquelle il doit se garer
+			//Une fois arrivé, il envoie un signal de fin au premier robot
+			set_Xbee_cmde(3);
+			HAL_UART_Transmit(&huart1, Xbee_cmde, sizeof(Xbee_cmde), 1);
+			//Puis il devient le robot garé
+			attpa = 0;
+			pa = 1;
+			XBEE = 2;
+			break;
+		}
+	}
+}
+
+void park(){
+	switch(pa){
+		case 0 : {
+			//Ne fais rien
+			break;
+		}
+		case 1 : {//Le robot envoie une demande de connexion aux robots en attente
+			set_Xbee_cmde(0);
+			envoi_Xbee_cmde();
+			pa = 0;
+			break;
+		}
+		case 2 : {//Envoi de la position du robot garé à celui qui s'est connecté en premier
+			for(pos=0; pos<3; pos++){
+				lecture_sonar();
+			}
+			ID_dest = Xbee_cmde[0];
+			set_Xbee_cmde(2);
+			envoi_Xbee_cmde();
+			pa = 0;
+			break;
+		}
+		case 3 : {//Mise en veille du robot
+			break;
+		}
+		}
+}
+
+void lecture_sonar(){
+	//Trigger sonar
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
+	fin_lect_sonar = 0;
+}
+
+/*void mesure_position(){
+
+	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
+	  pos = 1;
+	  lecture_sonar();
+	  if(fin_lect_sonar==0){
+	  	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
+	  	  pos = 2;
+	  	  lecture_sonar();
+	  	  if(fin_lect_sonar==0){
+	  		  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face
+	  		  pos = 0;
+	  		  lecture_sonar();
+	  	  }
+	  }
+}*/
+
+void set_Xbee_cmde(activ){
+	switch(activ){
+
+		case 0 : {
+			Xbee_cmde[0] = 1;
+			Xbee_cmde[1] = 1;
+			Xbee_cmde[2] = 0;
+			Xbee_cmde[3] = 1;
+			break;
+		}
+		case 1 : {
+			Xbee_cmde[0] = ID;
+			Xbee_cmde[1] = 1;
+			Xbee_cmde[2] = 1;
+			Xbee_cmde[3] = 1;
+			break;
+		}
+		case 2 : {
+			//Position normalement mesurée
+			pos_X = 1452;
+			pos_Y = 4598;
+			pos_Z = 2451;
+			Xbee_cmde[0] = ID_dest;
+			Xbee_cmde[1] = pos_X;
+			Xbee_cmde[2] = pos_Y;
+			Xbee_cmde[3] = pos_Z;
+			break;
+		}
+		case 3 : {
+			Xbee_cmde[0] = ID;
+			Xbee_cmde[1] = 0;
+			Xbee_cmde[2] = 0;
+			Xbee_cmde[3] = 0;
+			break;
+		}
+	}
+}
+
+void envoi_Xbee_cmde(){
+
+	HAL_UART_Transmit(&huart1, Xbee_cmde, sizeof(Xbee_cmde), 1);
+
+}
+
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	if (huart->Instance == USART3) {
 
@@ -1074,6 +1198,13 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 			break;
 		}
 
+		case 'A' : {
+			pa = 1;
+			XBEE = 2;
+			New_CMDE = 1;
+			break;
+		}
+
 		case 'D':{
 			// disconnect bluetooth
 			break;
@@ -1082,37 +1213,53 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 			New_CMDE = 1;
 		}
 
-		case 'A':{
-			// Appuie sur le button start
-			break;
-		}
-
 		HAL_UART_Receive_IT(&huart3, &BLUE_RX, 1);
 
 	}
 
 	if (huart->Instance == USART1){
 		if(huart->gState == HAL_UART_STATE_READY){
-			HAL_UART_Transmit(&huart1, Xbee_cmde, sizeof(Xbee_cmde), 1);
-
-		if(huart->gState = HAL_UART_STATE_READY){
-			Xbee_cmde[0]= 'ssem';
-			Xbee_cmde[1]='&ega';
-			Xbee_cmde[2]='ssem';
-			Xbee_cmde[3]=';ega';
-			HAL_UART_Transmit(&huart1, Xbee_cmde, sizeof(Xbee_cmde), 1);
+			switch(XBEE){
+				case 0 : {
+					HAL_UART_Receive_IT(&huart1, Xbee_cmde, sizeof(Xbee_cmde));
+					if(Xbee_cmde[0]==1 && Xbee_cmde[1]==1 && Xbee_cmde[2]==0 && Xbee_cmde[3]==1){
+						attpa = 1; //attpa passe à 1
+						XBEE = 1;
+					}
+					break;
+				}
+				case 1 : {
+					HAL_UART_Receive_IT(&huart1, Xbee_cmde, sizeof(Xbee_cmde));
+					if(Xbee_cmde[0]==ID){
+						attpa = 2; //le robot en attente commence à bouger vers sa position, attpa passe à 2
+					}
+					break;
+				}
+				case 2 : {
+					HAL_UART_Receive_IT(&huart1, Xbee_cmde, sizeof(Xbee_cmde));
+					if(Xbee_cmde[1]==1 && Xbee_cmde[2]==1 && Xbee_cmde[3]==1){
+						pa = 2;
+						XBEE = 3;
+					}
+					break;
+				}
+				case 3 : {
+					HAL_UART_Receive_IT(&huart1, Xbee_cmde, sizeof(Xbee_cmde));
+					if(Xbee_cmde[0]==ID_dest && Xbee_cmde[1]==0 && Xbee_cmde[2]==0 && Xbee_cmde[3]==0){
+						pa = 3;
+					}
+				}
+			}
 		}
-		HAL_UART_Receive_IT(&huart1, Xbee_cmde, sizeof(Xbee_cmde));
-
 	}
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc) {
 
-	Dist_ACS_3 = adc_buffer[0] - adc_buffer[5]; // Capteur SO
-	Dist_ACS_4 = adc_buffer[3] - adc_buffer[8]; // Capteur SE
-	Dist_ACS_1 = adc_buffer[1] - adc_buffer[6]; // Capteur NE
-	Dist_ACS_2 = adc_buffer[2] - adc_buffer[7]; // Capteur NO
+	Dist_ACS_3 = adc_buffer[0] - adc_buffer[5];
+	Dist_ACS_4 = adc_buffer[3] - adc_buffer[8];
+	Dist_ACS_1 = adc_buffer[1] - adc_buffer[6];
+	Dist_ACS_2 = adc_buffer[2] - adc_buffer[7];
 	HAL_ADC_Stop_DMA(hadc);
 }
 
@@ -1151,6 +1298,39 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim) {
 			cpt = 0;
 		}
 	}
+
+}
+
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
+
+	if ( htim->Instance == TIM1 )
+	{
+		if(pos = 0){
+			// lecture de la valeur
+			pos_X = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_2);
+			// réinitialisation du gpio du trig
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+			// fin lecture
+			fin_lect_sonar = 1;
+		}
+		if(pos = 1){
+			// lecture de la valeur
+			pos_Y = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_2);
+			// réinitialisation du gpio du trig
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+			// fin lecture
+			fin_lect_sonar = 1;
+		}
+		if(pos = 2){
+			// lecture de la valeur
+			pos_Z = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_2);
+			// réinitialisation du gpio du trig
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+			// fin lecture
+			fin_lect_sonar = 1;
+		}
+	}
+
 }
 
 // interruption watchdog
@@ -1171,27 +1351,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	New_CMDE = 1;
 }
 
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
-{
-
-	if ( htim->Instance == TIM1 )
-	{
-		//lecture de la valeur
-		dist_sonar = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_2);
-		//raz du gpio du trig
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
-		//fin lecture a true
-		fin_lect_sonar = 1;
-	}
-}
-
-void lecture_sonar()
-{
-	//Trigger sonar
-	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
-	//Attendre 50ms
-	fin_lect_sonar = 0;
-}
 /* USER CODE END 4 */
 
 /**
