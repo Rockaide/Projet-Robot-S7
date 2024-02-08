@@ -189,6 +189,7 @@ int main(void)
     	New_CMDE = 1;
     	HAL_ADC_Start_IT(&hadc1);
     	HAL_TIM_Base_Start_IT(&htim2);  // Start IT sur front montant PWM
+    	HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
     	HAL_TIM_IC_Start_IT (&htim1, TIM_CHANNEL_2); 	// Start input capture
     	HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
     	HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
@@ -205,12 +206,12 @@ int main(void)
 	  //__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2000);
 	  Gestion_Commandes();
 	  controle();
-	  AvanceDist(180*3);
+	  //AvanceDist(180*3);
 	  if (change == 1){
-		  //TurnDroite();
+		  TurnDroite();
 	  }
 	  if (change == 0){
-		  //TurnGauche();
+		  TurnGauche();
 	  }
 
 
