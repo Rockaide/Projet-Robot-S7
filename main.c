@@ -116,6 +116,10 @@ int cpt = 1;
 volatile uint32_t dist_sonar = 0;
 volatile uint8_t fin_lect_sonar = 0;
 
+/*Variables movement*/
+int change = 0;
+int start = 1;
+
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_NVIC_Init(void);
@@ -126,6 +130,10 @@ void controle(void);
 void Calcul_Vit(void);
 void ACS(void);
 void lecture_sonar(void);
+void TurnDroite(void);
+void TurnGauche(void);
+void arrete(int i);
+void AvanceDist(int dist);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -197,7 +205,13 @@ int main(void)
 	  //__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2000);
 	  Gestion_Commandes();
 	  controle();
-	  lecture_sonar();
+	  AvanceDist(180*3);
+	  if (change == 1){
+		  //TurnDroite();
+	  }
+	  if (change == 0){
+		  //TurnGauche();
+	  }
 
 
 /*	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
@@ -210,6 +224,93 @@ int main(void)
   /* USER CODE END 3 */
 }
 
+void TurnDroite(){
+
+	if(start){
+	DistG = 0;
+	DistD = 0;
+	_CVitG = V2;
+	_CVitD = V2;
+	start = 0;
+	}
+
+	//Valeurs pour le A6 -D = 485, G = 485, V2 => Pour tourner à droite
+	if((abs(DistD) >= 485) || (abs(DistG) >= 485)){
+		arrete(0);
+		}
+	__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, (uint16_t ) Cmde_VitG);	//Gauche
+	__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, (uint16_t ) Cmde_VitD);  //Droite
+	HAL_GPIO_WritePin(DIR1_GPIO_Port, DIR1_Pin, (GPIO_PinState) RECULE);
+	HAL_GPIO_WritePin(DIR2_GPIO_Port, DIR2_Pin, (GPIO_PinState) AVANCE);
+
+
+	Mode = ACTIF;
+
+}
+
+void TurnGauche(){
+
+	if(start){
+	DistG = 0;
+	DistD = 0;
+	_CVitG = V2;
+	_CVitD = V2;
+	Cmde_VitD = 0;
+	Cmde_VitG = 0;
+	start = 0;
+	}
+
+	//Valeurs pour le A6 -D = 485, G = 485, V2 pour tourner a gauche
+	if((abs(DistD) >= 505) || (abs(DistG) >= 505)){
+		arrete(1);
+		}
+	__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, (uint16_t ) Cmde_VitG);	//Gauche
+	__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, (uint16_t ) Cmde_VitD);  //Droite
+	HAL_GPIO_WritePin(DIR1_GPIO_Port, DIR1_Pin, (GPIO_PinState) AVANCE);
+	HAL_GPIO_WritePin(DIR2_GPIO_Port, DIR2_Pin, (GPIO_PinState) RECULE);
+
+
+	Mode = ACTIF;
+
+}
+
+void arrete(int i){
+	_CVitG = 0;
+	_CVitD = 0;
+	Cmde_VitD = 0;
+	Cmde_VitG = 0;
+	change = i;
+	start = 1;
+	__HAL_TIM_SET_COUNTER(&htim3, 0);
+	__HAL_TIM_SET_COUNTER(&htim4, 0);
+}
+
+void AvanceDist(int dist){
+
+	if(start){
+	DistG = 0;
+	DistD = 0;
+	_CVitG = V2;
+	_CVitD = V2;
+	Cmde_VitD = 0;
+	Cmde_VitG = 0;
+	start = 0;
+	}
+
+	//Valeurs pour le A6 -D = 485, G = 485, V2 pour avancer 10cm
+	if((abs(DistD) >= dist) || (abs(DistG) >= dist)){
+		arrete(1);
+		start = 0;
+		}
+	__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, (uint16_t ) Cmde_VitG);	//Gauche
+	__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, (uint16_t ) Cmde_VitD);  //Droite
+	HAL_GPIO_WritePin(DIR1_GPIO_Port, DIR1_Pin, (GPIO_PinState) AVANCE);
+	HAL_GPIO_WritePin(DIR2_GPIO_Port, DIR2_Pin, (GPIO_PinState) AVANCE);
+
+
+	Mode = ACTIF;
+
+}
 /**
   * @brief System Clock Configuration
   * @retval None
