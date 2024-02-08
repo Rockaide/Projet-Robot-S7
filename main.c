@@ -97,10 +97,12 @@ uint16_t Buff_Dist[8];
 uint8_t BLUE_RX;
 uint8_t XBEE;
 
-int ID = 1234; // Numéro d'identification du robot
+int ID = 4321; // Numéro d'identification du robot
 int ID_dest; //Numéro d'identification du robot à garer
 int Xbee_cmde[4]; // Buffer pour la communication zigbee, [ID, x0, y0, z0]
 int pos;
+int deja_vu;
+uint32_t Tempo;
 uint32_t pos_X;
 uint32_t pos_Y;
 uint32_t pos_Z;
@@ -135,7 +137,7 @@ void regulateur(void);
 void controle(void);
 void Calcul_Vit(void);
 void ACS(void);
-void set_Xbee_cmde(int a);
+void set_Xbee_cmde();
 //void mesure_position();
 void lecture_sonar();
 //void avancer(uint32_t longueur);
@@ -216,9 +218,6 @@ int main(void)
 	  controle();
 	  park();
 	  attente_park();
-	  //__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
-	  //__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
-	  //__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face
 	  //mesure_position();
     /* USER CODE END WHILE */
 
@@ -1056,7 +1055,9 @@ void attente_park(){
 			break;
 		}
 		case 1 : { //Le robot en attente envoi son ID au robot garé
-			set_Xbee_cmde(1);
+			activ = 1;
+			set_Xbee_cmde();
+			if(Tempo>500);
 			HAL_UART_Transmit(&huart1, Xbee_cmde, sizeof(Xbee_cmde), 1);
 			attpa = 0;
 			break;
@@ -1064,7 +1065,9 @@ void attente_park(){
 		case 2 : {
 			//Le robot en attente park bouge vers la position à laquelle il doit se garer
 			//Une fois arrivé, il envoie un signal de fin au premier robot
-			set_Xbee_cmde(3);
+			activ = 3;
+			set_Xbee_cmde();
+			if(Tempo>500);
 			HAL_UART_Transmit(&huart1, Xbee_cmde, sizeof(Xbee_cmde), 1);
 			//Puis il devient le robot garé
 			attpa = 0;
@@ -1082,8 +1085,10 @@ void park(){
 			break;
 		}
 		case 1 : {//Le robot envoie une demande de connexion aux robots en attente
-			set_Xbee_cmde(0);
-			envoi_Xbee_cmde();
+			activ = 0;
+			set_Xbee_cmde();
+			if(Tempo>500);
+			HAL_UART_Transmit(&huart1, Xbee_cmde, sizeof(Xbee_cmde), 1);
 			pa = 0;
 			break;
 		}
@@ -1092,12 +1097,15 @@ void park(){
 				lecture_sonar();
 			}
 			ID_dest = Xbee_cmde[0];
-			set_Xbee_cmde(2);
-			envoi_Xbee_cmde();
+			activ = 2;
+			set_Xbee_cmde();
+			if(Tempo>500);
+			HAL_UART_Transmit(&huart1, Xbee_cmde, sizeof(Xbee_cmde), 1);
 			pa = 0;
 			break;
 		}
 		case 3 : {//Mise en veille du robot
+
 			break;
 		}
 		}
@@ -1114,19 +1122,20 @@ void lecture_sonar(){
 	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
 	  pos = 1;
 	  lecture_sonar();
-	  if(fin_lect_sonar==0){
-	  	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
-	  	  pos = 2;
-	  	  lecture_sonar();
-	  	  if(fin_lect_sonar==0){
-	  		  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face
-	  		  pos = 0;
-	  		  lecture_sonar();
-	  	  }
+	  Tempo = 0;
+	  if(Tempo>800){
+	  if(fin_lect_sonar==0);
+	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
+	  pos = 2;
+	  lecture_sonar();
+	  if(fin_lect_sonar==0);
+	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face
+	  pos = 0;
+	  lecture_sonar();
 	  }
 }*/
 
-void set_Xbee_cmde(activ){
+void set_Xbee_cmde(){
 	switch(activ){
 
 		case 0 : {
@@ -1225,6 +1234,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 					if(Xbee_cmde[0]==1 && Xbee_cmde[1]==1 && Xbee_cmde[2]==0 && Xbee_cmde[3]==1){
 						attpa = 1; //attpa passe à 1
 						XBEE = 1;
+						Tempo = 0;
 					}
 					break;
 				}
@@ -1232,6 +1242,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 					HAL_UART_Receive_IT(&huart1, Xbee_cmde, sizeof(Xbee_cmde));
 					if(Xbee_cmde[0]==ID){
 						attpa = 2; //le robot en attente commence à bouger vers sa position, attpa passe à 2
+						Tempo = 0;
 					}
 					break;
 				}
@@ -1240,6 +1251,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 					if(Xbee_cmde[1]==1 && Xbee_cmde[2]==1 && Xbee_cmde[3]==1){
 						pa = 2;
 						XBEE = 3;
+						Tempo = 0;
 					}
 					break;
 				}
@@ -1247,6 +1259,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 					HAL_UART_Receive_IT(&huart1, Xbee_cmde, sizeof(Xbee_cmde));
 					if(Xbee_cmde[0]==ID_dest && Xbee_cmde[1]==0 && Xbee_cmde[2]==0 && Xbee_cmde[3]==0){
 						pa = 3;
+						Tempo = 0;
 					}
 				}
 			}
@@ -1270,6 +1283,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim) {
 		cpt++;
 		Time++;
 		Tech++;
+		Tempo++;
 
 		switch (cpt) {
 		case 1: {
