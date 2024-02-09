@@ -115,6 +115,14 @@ int cpt = 1;
 /*Variables sonar*/
 volatile uint32_t dist_sonar = 0;
 volatile uint8_t fin_lect_sonar = 0;
+int pos = -1;
+int deja_vu;
+uint32_t Tempo;
+uint32_t pos_X;
+uint32_t pos_Y;
+uint32_t pos_Z;
+uint16_t startX=0, startY=0, startZ=0;
+uint16_t finishX=0, finishY=0, finishZ=0;
 
 /*Variables movement*/
 int change = 2;
@@ -134,7 +142,8 @@ void TurnDroite(void);
 void TurnGauche(void);
 void arrete(int i);
 void AvanceDist(int dist);
-void ReculeDiste(int dist);
+void ReculeDist(int dist);
+void mesure_position();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -193,9 +202,13 @@ int main(void)
     	HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
     	HAL_TIM_IC_Start_IT (&htim1, TIM_CHANNEL_2); 	// Start input capture
     	HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
-    	HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
+    	HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_1);
+    	HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_2);
+    	HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_3);
+
     	HAL_UART_Receive_IT(&huart3, &BLUE_RX, 1);
     	HAL_UART_Receive_IT(&huart1, &Xbee_cmde, 1);
+
     	HAL_TIM_PWM_Start_IT(&htim1,TIM_CHANNEL_4); //Interruption PWM sonar
     	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4); //Début PWM sonar
   /* USER CODE END 2 */
@@ -208,7 +221,10 @@ int main(void)
 	  Gestion_Commandes();
 	  controle();
 	  //AvanceDist(180*3);
-	  if (change == 1){
+
+	  pos = -1;
+	  mesure_position();
+	  /*if (change == 1){
 		  TurnDroite();
 	  }
 	  if (change == 0){
@@ -219,7 +235,7 @@ int main(void)
 	  }
 	  if(change == 3){
 		  ReculeDist(180*5);
-	  }
+	  }*/
 
 /*	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
 	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
@@ -342,6 +358,43 @@ void ReculeDist(int dist){
 
 	Mode = ACTIF;
 
+}
+
+
+void mesureZ(){
+	pos = 0;
+	lecture_sonar();
+}
+
+void mesureX(){
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, (uint16_t ) 2950); //regard face
+	pos = 1;
+    lecture_sonar();
+}
+
+void mesureY(){
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, (uint16_t ) 1050); //regard 90° droite =
+    pos = 2;
+    lecture_sonar();
+}
+void mesure_position(){
+	if(finishY){/*NextState*/}
+	if(!startZ){
+		__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche = 4900
+		mesureZ();
+		startZ = 1;
+		Tempo = 0;
+	}
+	if(!startX && finishZ && (Tempo >= T_200_MS*20)){
+		mesureX();
+		Tempo = 0;
+		startX = 1;
+	}
+	if(!startY && finishX && finishZ && (Tempo >= T_200_MS*20)){
+		mesureY();
+		Tempo = 0;
+		startY = 1;
+	}
 }
 
 /**
@@ -1235,6 +1288,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef * htim) {
 		cpt++;
 		Time++;
 		Tech++;
+		Tempo++;
 
 		switch (cpt) {
 		case 1: {
@@ -1283,18 +1337,36 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	New_CMDE = 1;
 }
 
-void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
-{
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 
 	if ( htim->Instance == TIM1 )
 	{
-		//lecture de la valeur
-		dist_sonar = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_2);
-		//raz du gpio du trig
-		HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
-		//fin lecture a true
-		fin_lect_sonar = 1;
+		if(pos == 0 && !finishZ){
+			// lecture de la valeur Z
+			pos_Z = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_2);
+			// réinitialisation du gpio du trig
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+			// fin lecture
+			finishZ = 1;
+		}
+		if(pos == 1){
+			// lecture de la valeur X
+			pos_X = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_2);
+			// réinitialisation du gpio du trig
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+			// fin lecture
+			finishX = 1;
+		}
+		if(pos == 2){
+			// lecture de la valeur Y
+			pos_Y = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_2);
+			// réinitialisation du gpio du trig
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+			// fin lecture
+			finishY = 1;
+		}
 	}
+
 }
 
 void lecture_sonar()
