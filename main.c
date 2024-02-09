@@ -154,6 +154,10 @@ int _10cm = 180;
 int test_dist = 0;
 int go_next = 1;
 
+/*Variables Servo*/
+uint16_t startX=0, startY=0, startZ=0;
+uint16_t finishX=0, finishY=0, finishZ=0;
+
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_NVIC_Init(void);
@@ -169,6 +173,9 @@ void arrete(int i);
 void AvanceDist(int dist);
 void ReculeDist(int dist);
 void set_Xbee_cmde();
+void mesureX();
+void mesureY();
+void mesureZ();
 //void mesure_position();
 void lecture_sonar();
 //void avancer(uint32_t longueur);
@@ -177,6 +184,7 @@ void lecture_sonar();
 void park();
 void attente_park();
 void envoi_Xbee_cmde();
+void mesure_positionr();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -246,7 +254,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  //__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2000);
 	  Gestion_Commandes();
 	  controle();
 	  //park();
@@ -254,9 +261,9 @@ int main(void)
 	  //mesure_position();
 	  //AvanceDist(180*3);
 
-/*	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
-	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
-	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face*/
+//	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
+//	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
+//	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -1227,15 +1234,19 @@ void attente_park(){
 
 		case TOURNE_GAUCHE : {
 				TurnGauche();
-				if(go_next){attpa = MESURE_DIST_Z;}
+				if(go_next){Tempo = 0; attpa = MESURE_DIST_Z;}
 				break;
 				}
 
 		case MESURE_DIST_Z : {
 				//Execute mesure_sonar
 				//Quando mesure_sonar() est fini, passe à MOVE_Z
-				test_dist = 8*_10cm;
-				if(go_next){attpa = MOVE_Z;}
+				mesureX();
+				pos = 0;
+				if(Tempo >= 20*T_200_MS){
+					test_dist = (pos_Z/100);
+					if(go_next){attpa = MOVE_Z;}
+				}
 				break;
 				}
 
@@ -1313,23 +1324,41 @@ void lecture_sonar(){
 	fin_lect_sonar = 0;
 }
 
-/*void mesure_position(){
+void mesureZ(){
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche = 4900
+	pos = 0;
+	lecture_sonar();
+}
 
-	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
-	  pos = 1;
-	  lecture_sonar();
-	  Tempo = 0;
-	  if(Tempo>800){
-	  if(fin_lect_sonar==0);
-	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
-	  pos = 2;
-	  lecture_sonar();
-	  if(fin_lect_sonar==0);
-	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face
-	  pos = 0;
-	  lecture_sonar();
-	  }
-}*/
+void mesureX(){
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face
+	pos = 1;
+    lecture_sonar();
+}
+
+void mesureY(){
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4,  1050); //regard 90° droite =
+    pos = 2;
+    lecture_sonar();
+}
+void mesure_position(){
+	if(finishY){/*NextState*/}
+	if(!startZ){
+		mesureZ();
+		startZ = 1;
+		Tempo = 0;
+	}
+	if(!startX && finishZ && (Tempo >= 18*T_200_MS)){
+		mesureX();
+		Tempo = 0;
+		startX = 1;
+	}
+	if(!startY && finishX && finishZ && (Tempo >= 10*T_200_MS)){
+		mesureY();
+		Tempo = 0;
+		startY = 1;
+	}
+}
 
 void set_Xbee_cmde(){
 	switch(activ){
@@ -1515,37 +1544,29 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 
 	if ( htim->Instance == TIM1 )
 	{
-		switch (pos){
-		case 0: {
-			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face
-			if(Tempo>8000);
-			// lecture de la valeur
-			pos_X = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_2);
-			// réinitialisation du gpio du trig
-			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
-			// fin lecture
-			fin_lect_sonar = 1;
-		}
-		case 1: {
-			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
-			if(Tempo>8000);
-			// lecture de la valeur
-			pos_Y = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_2);
-			// réinitialisation du gpio du trig
-			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
-			// fin lecture
-			fin_lect_sonar = 1;
-		}
-		case 2: {
-			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
-			if(Tempo>800);
-			// lecture de la valeur
+		if(pos == 0 && !finishZ){
+			// lecture de la valeur Z
 			pos_Z = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_2);
 			// réinitialisation du gpio du trig
 			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
 			// fin lecture
-			fin_lect_sonar = 1;
+			finishZ = 1;
 		}
+		if(pos == 1){
+			// lecture de la valeur X
+			pos_X = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_2);
+			// réinitialisation du gpio du trig
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+			// fin lecture
+			finishX = 1;
+		}
+		if(pos == 2){
+			// lecture de la valeur Y
+			pos_Y = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_2);
+			// réinitialisation du gpio du trig
+			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
+			// fin lecture
+			finishY = 1;
 		}
 	}
 
