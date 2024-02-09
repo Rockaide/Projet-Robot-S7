@@ -139,6 +139,7 @@ volatile uint32_t dist_sonar = 0;
 			MESURE_DIST_Z,
 			MOVE_Z,
 			TOURNE_DROITE,
+			MESURE_DIST_X,
 			AVANCE_FIN,
 			FIN
 		};
@@ -1252,14 +1253,20 @@ void attente_park(){
 				mesureX();
 				pos = 0;
 				if(Tempo >= 20*T_200_MS){
-					test_dist = (pos_Z/100);
+					test_dist = (Xbee_cmde[3] - pos_Z)/170;
 					if(go_next){attpa = MOVE_Z;}
 				}
 				break;
 				}
 
 		case MOVE_Z : {
-				ReculeDist(test_dist);
+				if(test_dist > 0){
+					ReculeDist(abs(test_dist));
+				}
+
+				if(test_dist < 0){
+					AvanceDist(abs(test_dist));
+				}
 				if(go_next){attpa = TOURNE_DROITE;}
 				break;
 				}
@@ -1270,9 +1277,19 @@ void attente_park(){
 				break;
 				}
 
-		case AVANCE_FIN : {
-				AvanceDist(5*_10cm);
+		case MESURE_DIST_X : {
+						//Execute mesure_sonar
+						//Quando mesure_sonar() est fini, passe à MOVE_Z
+						mesureX();
+						if(Tempo >= 20*T_200_MS){
+							test_dist = (Xbee_cmde[1] - pos_X)/170;
+							if(go_next){attpa = AVANCE_FIN;}
+						}
+						break;
+						}
 
+		case AVANCE_FIN : {
+				AvanceDist(test_dist);
 				if(go_next){attpa = FIN;}
 				break;
 				}
