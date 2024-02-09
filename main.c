@@ -159,6 +159,7 @@ uint16_t finishX=0, finishY=0, finishZ=0;
 	enum CURR_ETAT_PARK {
 		ATTENTE = 20,
 		ACTIVATION,
+		MESURE_POS0,
 		ENVOI_POS0,
 		SOMMEIL
 	};
@@ -1306,10 +1307,15 @@ void park(){
 			pa = ATTENTE;
 			break;
 		}
+		case MESURE_POS0 : {//Mesure position robot garé
+			mesure_position();
+			if(finishY){
+				pa = ENVOI_POS0;
+				break;
+			}
+			break;
+		}
 		case ENVOI_POS0 : {//Envoi de la position du robot garé à celui qui s'est connecté en premier
-/*			for(pos=0; pos<3; pos++){
-				lecture_sonar();
-			}*/
 			ID_dest = Xbee_cmde[0];
 			activ = 2;
 			set_Xbee_cmde();
@@ -1387,9 +1393,6 @@ void set_Xbee_cmde(){
 		}
 		case 2 : {
 			//Position normalement mesurée
-			pos_X = 1452;
-			pos_Y = 4598;
-			pos_Z = 2451;
 			Xbee_cmde[0] = ID_dest;
 			Xbee_cmde[1] = pos_X;
 			Xbee_cmde[2] = pos_Y;
@@ -1482,7 +1485,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 				case 2 : {
 					HAL_UART_Receive_IT(&huart1, Xbee_cmde, sizeof(Xbee_cmde));
 					if(Xbee_cmde[1]==1 && Xbee_cmde[2]==1 && Xbee_cmde[3]==1){
-						pa = ENVOI_POS0;
+						pa = MESURE_POS0;
 						XBEE = 3;
 						Tempo = 0;
 					}
