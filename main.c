@@ -1515,7 +1515,10 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 
 	if ( htim->Instance == TIM1 )
 	{
-		if(pos = 0){
+		switch (pos){
+		case 0: {
+			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face
+			if(Tempo>8000);
 			// lecture de la valeur
 			pos_X = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_2);
 			// réinitialisation du gpio du trig
@@ -1523,7 +1526,9 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 			// fin lecture
 			fin_lect_sonar = 1;
 		}
-		if(pos = 1){
+		case 1: {
+			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
+			if(Tempo>8000);
 			// lecture de la valeur
 			pos_Y = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_2);
 			// réinitialisation du gpio du trig
@@ -1531,13 +1536,16 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 			// fin lecture
 			fin_lect_sonar = 1;
 		}
-		if(pos = 2){
+		case 2: {
+			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
+			if(Tempo>800);
 			// lecture de la valeur
 			pos_Z = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_2);
 			// réinitialisation du gpio du trig
 			HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_RESET);
 			// fin lecture
 			fin_lect_sonar = 1;
+		}
 		}
 	}
 
