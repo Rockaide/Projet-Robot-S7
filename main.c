@@ -91,7 +91,6 @@ volatile unsigned int Time = 0;
 volatile unsigned int Tech = 0;
 volatile unsigned int Vbatt = 0;
 volatile unsigned int pa = 0;
-volatile unsigned int attpa = 0;
 uint16_t adc_buffer[10];
 uint16_t Buff_Dist[8];
 uint8_t BLUE_RX;
@@ -128,17 +127,33 @@ int cpt = 1;
 int activ;
 /* USER CODE END PV */
 
-<<<<<<< HEAD
-=======
 /*Variables sonar*/
 volatile uint32_t dist_sonar = 0;
-volatile uint8_t fin_lect_sonar = 0;
+//volatile uint8_t fin_lect_sonar = 0;
 
+/*ENUM POUR PARK*/
+	enum CURR_ETAT {
+			RIEN = 10,
+			ENVOY_ID,
+			AVANCE50,
+			TOURNE_GAUCHE,
+			MESURE_DIST_Z,
+			MOVE_Z,
+			TOURNE_DROITE,
+			AVANCE_FIN,
+			FIN
+
+		};
+static enum CURR_ETAT attpa = AVANCE50;
 /*Variables movement*/
 int change = 2;
 int start = 1;
+int offset_D = 0;
+int offset_G = 0-8;
+int _10cm = 180;
+int test_dist = 0;
+int go_next = 1;
 
->>>>>>> main
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_NVIC_Init(void);
@@ -148,7 +163,11 @@ void regulateur(void);
 void controle(void);
 void Calcul_Vit(void);
 void ACS(void);
-<<<<<<< HEAD
+void TurnDroite(void);
+void TurnGauche(void);
+void arrete(int i);
+void AvanceDist(int dist);
+void ReculeDist(int dist);
 void set_Xbee_cmde();
 //void mesure_position();
 void lecture_sonar();
@@ -158,14 +177,6 @@ void lecture_sonar();
 void park();
 void attente_park();
 void envoi_Xbee_cmde();
-=======
-void lecture_sonar(void);
-void TurnDroite(void);
-void TurnGauche(void);
-void arrete(int i);
-void AvanceDist(int dist);
-void ReculeDiste(int dist);
->>>>>>> main
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -221,11 +232,8 @@ int main(void)
     	New_CMDE = 1;
     	HAL_ADC_Start_IT(&hadc1);
     	HAL_TIM_Base_Start_IT(&htim2);  // Start IT sur front montant PWM
-<<<<<<< HEAD
-=======
     	HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
     	HAL_TIM_IC_Start_IT (&htim1, TIM_CHANNEL_2); 	// Start input capture
->>>>>>> main
     	HAL_TIM_Encoder_Start(&htim3, TIM_CHANNEL_ALL);
     	HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
     	HAL_UART_Receive_IT(&huart3, &BLUE_RX, 1);
@@ -241,29 +249,14 @@ int main(void)
 	  //__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2000);
 	  Gestion_Commandes();
 	  controle();
-<<<<<<< HEAD
-	  park();
+	  //park();
 	  attente_park();
 	  //mesure_position();
-=======
 	  //AvanceDist(180*3);
-	  if (change == 1){
-		  TurnDroite();
-	  }
-	  if (change == 0){
-		  TurnGauche();
-	  }
-	  if(change == 2){
-		  AvanceDist(180*5);
-	  }
-	  if(change == 3){
-		  ReculeDist(180*5);
-	  }
 
 /*	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
 	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
 	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face*/
->>>>>>> main
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -274,6 +267,7 @@ int main(void)
 void TurnDroite(){
 
 	if(start){
+	go_next = 0;
 	DistG = 0;
 	DistD = 0;
 	_CVitG = V2;
@@ -282,7 +276,7 @@ void TurnDroite(){
 	}
 
 	//Valeurs pour le A6 -D = 485, G = 485, V2 => Pour tourner à droite
-	if((abs(DistD) >= 485) || (abs(DistG) >= 485)){
+	if((abs(DistD) >= 510) || (abs(DistG) >= 510)){
 		arrete(3);
 		}
 	__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, (uint16_t ) Cmde_VitG);	//Gauche
@@ -298,6 +292,7 @@ void TurnDroite(){
 void TurnGauche(){
 
 	if(start){
+	go_next = 0;
 	DistG = 0;
 	DistD = 0;
 	_CVitG = V2;
@@ -327,6 +322,7 @@ void arrete(int i){
 	Cmde_VitD = 0;
 	Cmde_VitG = 0;
 	change = i;
+	go_next = 1;
 	start = 1;
 	__HAL_TIM_SET_COUNTER(&htim3, 0);
 	__HAL_TIM_SET_COUNTER(&htim4, 0);
@@ -335,10 +331,11 @@ void arrete(int i){
 void AvanceDist(int dist){
 
 	if(start){
+	go_next = 0;
 	DistG = 0;
 	DistD = 0;
-	_CVitG = V2;
-	_CVitD = V2;
+	_CVitG = V2 + offset_G;
+	_CVitD = V2 + offset_D;
 	Cmde_VitD = 0;
 	Cmde_VitG = 0;
 	start = 0;
@@ -346,7 +343,7 @@ void AvanceDist(int dist){
 
 	//Valeurs pour le A6 -D = 485, G = 485, V2 pour avancer 10cm
 	if((abs(DistD) >= dist) || (abs(DistG) >= dist)){
-		arrete(1);
+		arrete(3);
 		}
 	__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, (uint16_t ) Cmde_VitG);	//Gauche
 	__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, (uint16_t ) Cmde_VitD);  //Droite
@@ -361,10 +358,11 @@ void AvanceDist(int dist){
 void ReculeDist(int dist){
 
 	if(start){
+	go_next = 0;
 	DistG = 0;
 	DistD = 0;
-	_CVitG = V2;
-	_CVitD = V2;
+	_CVitG = V2 + offset_G;
+	_CVitD = V2 + offset_D;
 	Cmde_VitD = 0;
 	Cmde_VitG = 0;
 	start = 0;
@@ -372,7 +370,7 @@ void ReculeDist(int dist){
 
 	//Valeurs pour le A6 -D = 485, G = 485, V2 pour avancer 10cm
 	if((abs(DistD) >= dist) || (abs(DistG) >= dist)){
-		arrete(0);
+		arrete(2);
 		}
 	__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_1, (uint16_t ) Cmde_VitG);	//Gauche
 	__HAL_TIM_SET_COMPARE(&htim2, TIM_CHANNEL_4, (uint16_t ) Cmde_VitD);  //Droite
@@ -1208,11 +1206,11 @@ void regulateur(void) {
 
 void attente_park(){
 	switch(attpa){
-		case 0 : {
+		case RIEN : {
 			//En attente
 			break;
 		}
-		case 1 : { //Le robot en attente envoi son ID au robot garé
+		case ENVOY_ID : { //Le robot en attente envoi son ID au robot garé
 			activ = 1;
 			set_Xbee_cmde();
 			if(Tempo>500);
@@ -1220,7 +1218,47 @@ void attente_park(){
 			attpa = 0;
 			break;
 		}
-		case 2 : {
+
+		case AVANCE50 : {
+				AvanceDist(5*_10cm);
+				if(go_next){attpa = TOURNE_GAUCHE;}
+				break;
+				}
+
+		case TOURNE_GAUCHE : {
+				TurnGauche();
+				if(go_next){attpa = MESURE_DIST_Z;}
+				break;
+				}
+
+		case MESURE_DIST_Z : {
+				//Execute mesure_sonar
+				//Quando mesure_sonar() est fini, passe à MOVE_Z
+				test_dist = 8*_10cm;
+				if(go_next){attpa = MOVE_Z;}
+				break;
+				}
+
+		case MOVE_Z : {
+				ReculeDist(test_dist);
+				if(go_next){attpa = TOURNE_DROITE;}
+				break;
+				}
+
+		case TOURNE_DROITE : {
+				TurnDroite();
+				if(go_next){attpa = AVANCE_FIN;}
+				break;
+				}
+
+		case AVANCE_FIN : {
+				AvanceDist(5*_10cm);
+
+				if(go_next){attpa = FIN;}
+				break;
+				}
+
+		case FIN : {
 			//Le robot en attente park bouge vers la position à laquelle il doit se garer
 			//Une fois arrivé, il envoie un signal de fin au premier robot
 			activ = 3;
@@ -1231,6 +1269,7 @@ void attente_park(){
 			attpa = 0;
 			pa = 1;
 			XBEE = 2;
+			attpa = RIEN;
 			break;
 		}
 	}
