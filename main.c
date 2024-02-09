@@ -90,7 +90,6 @@ volatile uint16_t Dist_ACS_1, Dist_ACS_2, Dist_ACS_3, Dist_ACS_4;
 volatile unsigned int Time = 0;
 volatile unsigned int Tech = 0;
 volatile unsigned int Vbatt = 0;
-volatile unsigned int pa = 0;
 uint16_t adc_buffer[10];
 uint16_t Buff_Dist[8];
 uint8_t BLUE_RX;
@@ -131,8 +130,8 @@ int activ;
 volatile uint32_t dist_sonar = 0;
 //volatile uint8_t fin_lect_sonar = 0;
 
-/*ENUM POUR PARK*/
-	enum CURR_ETAT {
+/*ENUM POUR ATTPARK*/
+	enum CURR_ETAT_ATT {
 			RIEN = 10,
 			ENVOI_ID,
 			AVANCE50,
@@ -142,9 +141,8 @@ volatile uint32_t dist_sonar = 0;
 			TOURNE_DROITE,
 			AVANCE_FIN,
 			FIN
-
 		};
-static enum CURR_ETAT attpa = AVANCE50;
+static enum CURR_ETAT_ATT attpa=RIEN;
 /*Variables movement*/
 int change = 2;
 int start = 1;
@@ -153,6 +151,15 @@ int offset_G = 0-8;
 int _10cm = 180;
 int test_dist = 0;
 int go_next = 1;
+
+/*ENUM POUR PARK*/
+	enum CURR_ETAT_PARK {
+		ATTENTE = 20,
+		ACTIVATION,
+		ENVOI_POS0,
+		SOMMEIL
+	};
+static enum CURR_ETAT_PARK pa=ATTENTE;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
@@ -249,14 +256,14 @@ int main(void)
 	  //__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2000);
 	  Gestion_Commandes();
 	  controle();
-	  //park();
+	  park();
 	  attente_park();
 	  //mesure_position();
 	  //AvanceDist(180*3);
 
-/*	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
-	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
-	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face*/
+//	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 1050); //regard 90° droite
+//	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
+	 /* __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face*/
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -1276,32 +1283,33 @@ void attente_park(){
 
 void park(){
 	switch(pa){
-		case 0 : {
+		case ATTENTE : {
 			//Ne fais rien
 			break;
 		}
-		case 1 : {//Le robot envoie une demande de connexion aux robots en attente
+		case ACTIVATION : {//Le robot envoie une demande de connexion aux robots en attente
 			activ = 0;
 			set_Xbee_cmde();
-			if(Tempo>500);
+			if(Tempo>1000);
 			HAL_UART_Transmit(&huart1, Xbee_cmde, sizeof(Xbee_cmde), 1);
-			pa = 0;
+			pa = ATTENTE;
 			break;
 		}
-		case 2 : {//Envoi de la position du robot garé à celui qui s'est connecté en premier
-			for(pos=0; pos<3; pos++){
+		case ENVOI_POS0 : {//Envoi de la position du robot garé à celui qui s'est connecté en premier
+/*			for(pos=0; pos<3; pos++){
 				lecture_sonar();
-			}
+			}*/
 			ID_dest = Xbee_cmde[0];
 			activ = 2;
 			set_Xbee_cmde();
-			if(Tempo>500);
+			if(Tempo>1000);
 			HAL_UART_Transmit(&huart1, Xbee_cmde, sizeof(Xbee_cmde), 1);
-			pa = 0;
+			pa = ATTENTE;
 			break;
 		}
-		case 3 : {//Mise en veille du robot
-
+		case SOMMEIL : {//Mise en veille du robot
+			Mode = SLEEP;
+			pa = ATTENTE;
 			break;
 		}
 		}
@@ -1404,7 +1412,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 		}
 
 		case 'A' : {
-			pa = 1;
+			pa = ACTIVATION;
 			XBEE = 2;
 			New_CMDE = 1;
 			break;
@@ -1445,7 +1453,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 				case 2 : {
 					HAL_UART_Receive_IT(&huart1, Xbee_cmde, sizeof(Xbee_cmde));
 					if(Xbee_cmde[1]==1 && Xbee_cmde[2]==1 && Xbee_cmde[3]==1){
-						pa = 2;
+						pa = ENVOI_POS0;
 						XBEE = 3;
 						Tempo = 0;
 					}
@@ -1454,7 +1462,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 				case 3 : {
 					HAL_UART_Receive_IT(&huart1, Xbee_cmde, sizeof(Xbee_cmde));
 					if(Xbee_cmde[0]==ID_dest && Xbee_cmde[1]==0 && Xbee_cmde[2]==0 && Xbee_cmde[3]==0){
-						pa = 3;
+						pa = SOMMEIL;
 						Tempo = 0;
 					}
 				}
@@ -1538,7 +1546,7 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
 		}
 		case 2: {
 			__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche
-			if(Tempo>800);
+			if(Tempo>8000);
 			// lecture de la valeur
 			pos_Z = HAL_TIM_ReadCapturedValue(&htim1, TIM_CHANNEL_2);
 			// réinitialisation du gpio du trig
