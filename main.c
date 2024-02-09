@@ -134,7 +134,7 @@ volatile uint32_t dist_sonar = 0;
 /*ENUM POUR PARK*/
 	enum CURR_ETAT {
 			RIEN = 10,
-			ENVOY_ID,
+			ENVOI_ID,
 			AVANCE50,
 			TOURNE_GAUCHE,
 			MESURE_DIST_Z,
@@ -1210,12 +1210,12 @@ void attente_park(){
 			//En attente
 			break;
 		}
-		case ENVOY_ID : { //Le robot en attente envoi son ID au robot garé
+		case ENVOI_ID : { //Le robot en attente envoi son ID au robot garé
 			activ = 1;
 			set_Xbee_cmde();
 			if(Tempo>500);
 			HAL_UART_Transmit(&huart1, Xbee_cmde, sizeof(Xbee_cmde), 1);
-			attpa = 0;
+			attpa = RIEN;
 			break;
 		}
 
@@ -1266,10 +1266,9 @@ void attente_park(){
 			if(Tempo>500);
 			HAL_UART_Transmit(&huart1, Xbee_cmde, sizeof(Xbee_cmde), 1);
 			//Puis il devient le robot garé
-			attpa = 0;
+			attpa = RIEN;
 			pa = 1;
 			XBEE = 2;
-			attpa = RIEN;
 			break;
 		}
 	}
@@ -1429,7 +1428,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 				case 0 : {
 					HAL_UART_Receive_IT(&huart1, Xbee_cmde, sizeof(Xbee_cmde));
 					if(Xbee_cmde[0]==1 && Xbee_cmde[1]==1 && Xbee_cmde[2]==0 && Xbee_cmde[3]==1){
-						attpa = 1; //attpa passe à 1
+						attpa = ENVOI_ID; //attpa passe à 1
 						XBEE = 1;
 						Tempo = 0;
 					}
@@ -1438,7 +1437,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 				case 1 : {
 					HAL_UART_Receive_IT(&huart1, Xbee_cmde, sizeof(Xbee_cmde));
 					if(Xbee_cmde[0]==ID){
-						attpa = 2; //le robot en attente commence à bouger vers sa position, attpa passe à 2
+						attpa = AVANCE50; //le robot en attente commence à bouger vers sa position, attpa passe à 2
 						Tempo = 0;
 					}
 					break;
