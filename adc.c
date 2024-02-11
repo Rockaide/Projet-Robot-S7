@@ -59,10 +59,10 @@ void MX_ADC1_Init(void)
   /** Configure Analog WatchDog 1
   */
   AnalogWDGConfig.WatchdogMode = ADC_ANALOGWATCHDOG_SINGLE_REG;
-  AnalogWDGConfig.HighThreshold = 3500;
-  AnalogWDGConfig.LowThreshold = 3500;
+  AnalogWDGConfig.HighThreshold = 3000;
+  AnalogWDGConfig.LowThreshold = 3000;
   AnalogWDGConfig.Channel = ADC_CHANNEL_15;
-  AnalogWDGConfig.ITMode = DISABLE;
+  AnalogWDGConfig.ITMode = ENABLE;
   if (HAL_ADC_AnalogWDGConfig(&hadc1, &AnalogWDGConfig) != HAL_OK)
   {
     Error_Handler();
