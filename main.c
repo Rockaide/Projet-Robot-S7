@@ -95,7 +95,7 @@ uint16_t Buff_Dist[8];
 uint8_t BLUE_RX;
 uint8_t XBEE;
 
-int ID = 2222; // Numéro d'identification du robot /*******************************************************/
+int ID = 3333; // Numéro d'identification du robot /***************************************************************/
 int ID_dest; //Numéro d'identification du robot à garer
 int Xbee_cmde[4]; // Buffer pour la communication zigbee, [ID, x0, y0, z0]
 int pos;
@@ -124,9 +124,12 @@ uint8_t UNE_FOIS = 1;
 uint32_t OV = 0;
 int cpt = 1;
 int activ;
-int teteg = 4900; /***************************************************************************************/
-int tetef = 2450; /***************************************************************************************/
-int teted = 1050; /***************************************************************************************/
+//59 - 4300, 2350, 700
+//BA2 - 4400, 2450, 700
+//EE - 5500, 3150, 1150
+int teteg = 5500; /***************************************************************************************/
+int tetef = 3150; /***************************************************************************************/
+int teted = 1150; /***************************************************************************************/
 
 /*Variables sonar*/
 volatile uint32_t dist_sonar = 0;
@@ -1265,11 +1268,11 @@ void attente_park(){
 
 		case MOVE_Z : {
 				if(test_dist > 0){
-					ReculeDist(abs(test_dist));
+					ReculeDist(abs(test_dist - ((3000/1400)*_10cm)));
 				}
 
 				if(test_dist < 0){
-					AvanceDist(abs(test_dist));
+					AvanceDist(abs(test_dist + (3000/1400)*_10cm));
 				}
 				if(go_next){attpa = TOURNE_DROITE;}
 				break;
@@ -1418,7 +1421,7 @@ void set_Xbee_cmde(){
 			Xbee_cmde[0] = ID_dest;
 			Xbee_cmde[1] = pos_X;
 			Xbee_cmde[2] = pos_Y;
-			Xbee_cmde[3] = pos_Z + 3000;
+			Xbee_cmde[3] = pos_Z;
 			break;
 		}
 		case 3 : {
