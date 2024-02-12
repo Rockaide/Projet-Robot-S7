@@ -95,7 +95,7 @@ uint16_t Buff_Dist[8];
 uint8_t BLUE_RX;
 uint8_t XBEE;
 
-int ID = 4321; // Numéro d'identification du robot /*******************************************************/
+int ID = 2222; // Numéro d'identification du robot /*******************************************************/
 int ID_dest; //Numéro d'identification du robot à garer
 int Xbee_cmde[4]; // Buffer pour la communication zigbee, [ID, x0, y0, z0]
 int pos;
@@ -195,7 +195,7 @@ void start_lect_sonar();
 void park();
 void attente_park();
 void envoi_Xbee_cmde();
-void mesure_positionr();
+void mesure_position();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
