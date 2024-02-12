@@ -95,15 +95,15 @@ uint16_t Buff_Dist[8];
 uint8_t BLUE_RX;
 uint8_t XBEE;
 
-int ID = 4321; // Numéro d'identification du robot
+int ID = 4321; // Numéro d'identification du robot /*******************************************************/
 int ID_dest; //Numéro d'identification du robot à garer
 int Xbee_cmde[4]; // Buffer pour la communication zigbee, [ID, x0, y0, z0]
 int pos;
 int deja_vu;
 uint32_t Tempo;
-uint32_t pos_X;
-uint32_t pos_Y;
-uint32_t pos_Z;
+int pos_X;
+int pos_Y;
+int pos_Z;
 uint8_t fin_lect_sonar = 0;
 
 uint16_t _DirG, _DirD, CVitG, CVitD, DirD, DirG;
@@ -124,7 +124,9 @@ uint8_t UNE_FOIS = 1;
 uint32_t OV = 0;
 int cpt = 1;
 int activ;
-/* USER CODE END PV */
+int teteg = 4900; /***************************************************************************************/
+int tetef = 2450; /***************************************************************************************/
+int teted = 1050; /***************************************************************************************/
 
 /*Variables sonar*/
 volatile uint32_t dist_sonar = 0;
@@ -149,9 +151,10 @@ int change = 2;
 int start = 1;
 int offset_D = 0;
 int offset_G = 0-8;
-int _10cm = 180;
-int test_dist = 0;
+int _10cm = 150;
+float test_dist = 0;
 int go_next = 1;
+int temp_var = 0;
 
 /*Variables Servo*/
 uint16_t startX=0, startY=0, startZ=0;
@@ -165,7 +168,7 @@ uint16_t finishX=0, finishY=0, finishZ=0;
 		SOMMEIL
 	};
 static enum CURR_ETAT_PARK pa=ATTENTE;
-
+/* USER CODE END PV */
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_NVIC_Init(void);
@@ -185,7 +188,7 @@ void mesureX();
 void mesureY();
 void mesureZ();
 //void mesure_position();
-void lecture_sonar();
+void start_lect_sonar();
 //void avancer(uint32_t longueur);
 //void tourner_gauche();
 //void tourner_droite();
@@ -1253,7 +1256,8 @@ void attente_park(){
 				mesureX();
 				pos = 0;
 				if(Tempo >= 20*T_200_MS){
-					test_dist = (Xbee_cmde[3] - pos_Z)/170;
+					temp_var = pos_Z;
+					test_dist = ((Xbee_cmde[3] - temp_var)/1400)*_10cm;
 					if(go_next){attpa = MOVE_Z;}
 				}
 				break;
@@ -1273,7 +1277,7 @@ void attente_park(){
 
 		case TOURNE_DROITE : {
 				TurnDroite();
-				if(go_next){attpa = AVANCE_FIN;}
+				if(go_next){Tempo = 0; attpa = AVANCE_FIN;}
 				break;
 				}
 
@@ -1282,7 +1286,8 @@ void attente_park(){
 						//Quando mesure_sonar() est fini, passe à MOVE_Z
 						mesureX();
 						if(Tempo >= 20*T_200_MS){
-							test_dist = (Xbee_cmde[1] - pos_X)/170;
+							temp_var = pos_X;
+							test_dist = ((Xbee_cmde[1] - pos_X)/1400)*_10cm;
 							if(go_next){attpa = AVANCE_FIN;}
 						}
 						break;
@@ -1303,7 +1308,7 @@ void attente_park(){
 			HAL_UART_Transmit(&huart1, Xbee_cmde, sizeof(Xbee_cmde), 1);
 			//Puis il devient le robot garé
 			attpa = RIEN;
-			pa = 1;
+			pa = ACTIVATION;
 			XBEE = 2;
 			break;
 		}
@@ -1349,28 +1354,28 @@ void park(){
 		}
 }
 
-void lecture_sonar(){
+void start_lect_sonar(){
 	//Trigger sonar
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_10, GPIO_PIN_SET);
 	fin_lect_sonar = 0;
 }
 
 void mesureZ(){
-	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 4900); //regard 90° gauche = 4900
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, teteg); //regard 90° gauche = 4900
 	pos = 0;
-	lecture_sonar();
+	start_lect_sonar();
 }
 
 void mesureX(){
-	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 2950); //regard face
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, tetef); //regard face
 	pos = 1;
-    lecture_sonar();
+    start_lect_sonar();
 }
 
 void mesureY(){
-	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4,  1050); //regard 90° droite =
+	__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4,  teted); //regard 90° droite = 1050
     pos = 2;
-    lecture_sonar();
+    start_lect_sonar();
 }
 void mesure_position(){
 	if(finishY){/*NextState*/}
@@ -1413,7 +1418,7 @@ void set_Xbee_cmde(){
 			Xbee_cmde[0] = ID_dest;
 			Xbee_cmde[1] = pos_X;
 			Xbee_cmde[2] = pos_Y;
-			Xbee_cmde[3] = pos_Z;
+			Xbee_cmde[3] = pos_Z + 3000;
 			break;
 		}
 		case 3 : {
